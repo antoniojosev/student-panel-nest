@@ -1,98 +1,153 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# VR Academy - Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+API REST para la plataforma educativa VR Academy. Gestión de usuarios, estudiantes y métricas de cursos de realidad virtual.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Stack
 
-## Description
+- **NestJS** + TypeScript
+- **Prisma ORM** + SQLite (via LibSQL adapter)
+- **JWT** para autenticación
+- **class-validator** para validación de DTOs
+- **bcrypt** para hashing de contraseñas
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Decisiones técnicas
 
-## Project setup
+- **SQLite**: Base de datos ligera sin dependencias externas. Ideal para desarrollo y demos. La migración a PostgreSQL solo requiere cambiar el adapter en Prisma.
+- **Prisma 7 + LibSQL**: Adapter nativo para SQLite con soporte completo de migraciones y tipado.
+- **Roles con guards**: Decoradores `@Roles()` y `RolesGuard` para autorización declarativa en cada endpoint.
+- **Scope por instructor**: Los instructores solo acceden a sus propios estudiantes. El filtrado se aplica a nivel de servicio, no de controlador.
+- **Métricas en backend**: Las agregaciones del dashboard se calculan con queries de Prisma (`groupBy`, `aggregate`, `count`), no en el frontend.
+- **Sin registro público**: Los usuarios los crea el admin desde el panel. El admin default se genera con el seed.
+
+## Requisitos
+
+- Node.js >= 18
+
+## Instalación
 
 ```bash
-$ npm install
+cd backend
+npm install
 ```
 
-## Compile and run the project
+## Variables de entorno
+
+Copiar el archivo de ejemplo y ajustar:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
 ```
 
-## Run tests
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | Ruta al archivo SQLite | `file:./prisma/dev.db` |
+| `JWT_SECRET` | Clave secreta para firmar tokens JWT | `jwt-secret-change-me` |
+| `PORT` | Puerto del servidor | `3001` |
+
+## Base de datos
+
+Crear la base de datos y aplicar migraciones:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npx prisma migrate dev
 ```
 
-## Deployment
+## Seed
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Poblar la base de datos con datos de prueba (4 usuarios + 30 estudiantes):
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npx prisma db seed
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### Credenciales del seed
 
-## Resources
+| Rol | Email | Password |
+|-----|-------|----------|
+| Admin | `admin@vracademy.lat` | `admin123` |
+| Instructor | `carlos@vracademy.lat` | `pass123` |
+| Instructor | `maria@vracademy.lat` | `pass123` |
+| Instructor | `jorge@vracademy.lat` | `pass123` |
 
-Check out a few resources that may come in handy when working with NestJS:
+## Ejecutar
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+# Desarrollo (watch mode)
+npm run start:dev
 
-## Support
+# Producción
+npm run build
+npm run start:prod
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+El servidor arranca en `http://localhost:3001`.
 
-## Stay in touch
+## Tests
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+npm test
+```
 
-## License
+37 tests unitarios cubriendo: AuthService, UsersService, StudentsService, DashboardService.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Endpoints
+
+### Auth
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/api/auth/login` | No | Iniciar sesión |
+| GET | `/api/auth/me` | JWT | Perfil del usuario autenticado |
+
+### Usuarios (solo admin)
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/api/users` | JWT + Admin | Listar usuarios |
+| GET | `/api/users/:id` | JWT + Admin | Detalle de usuario |
+| POST | `/api/users` | JWT + Admin | Crear usuario |
+| PATCH | `/api/users/:id` | JWT + Admin | Actualizar usuario |
+| DELETE | `/api/users/:id` | JWT + Admin | Eliminar usuario |
+
+### Estudiantes
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/api/students` | JWT | Listar (paginado, filtros) |
+| GET | `/api/students/:id` | JWT | Detalle |
+| POST | `/api/students` | JWT | Crear estudiante |
+| PATCH | `/api/students/:id` | JWT | Actualizar |
+| DELETE | `/api/students/:id` | JWT | Eliminar |
+
+**Query params de listado:** `?page=1&limit=10&status=activo&search=texto`
+
+**Nota:** El instructor solo ve/modifica sus propios estudiantes. El admin ve todos y puede asignar un `instructorId` al crear.
+
+### Dashboard
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/api/dashboard` | JWT | Métricas |
+
+Respuesta:
+- `totalStudents` — total de estudiantes
+- `statusDistribution` — cantidad por estado
+- `avgProgress` — progreso promedio (%)
+- `last7Days` — registros por día (últimos 7 días)
+- `instructorRanking` — ranking por estudiantes completados (solo admin)
+
+## Estructura
+
+```
+backend/
+├── prisma/
+│   ├── schema.prisma       # Modelos de datos
+│   ├── seed.ts             # Datos de prueba
+│   └── migrations/
+├── src/
+│   ├── auth/               # Login, JWT, guards
+│   ├── users/              # CRUD usuarios (admin)
+│   ├── students/           # CRUD estudiantes (scoped)
+│   ├── dashboard/          # Métricas y agregaciones
+│   ├── common/             # Guards, decorators, filters
+│   ├── prisma/             # PrismaService
+│   ├── app.module.ts
+│   └── main.ts
+└── .env.example
+```
