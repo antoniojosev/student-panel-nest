@@ -27,16 +27,16 @@ API REST para la plataforma educativa VR Academy. Gestión de usuarios, estudian
 
 ```bash
 cd backend
+cp .env.example .env
 npm install
 ```
 
+`npm install` genera automáticamente el cliente de Prisma via `postinstall`.
+
 ## Variables de entorno
 
-Copiar el archivo de ejemplo y ajustar:
+Editar `.env` si es necesario:
 
-```bash
-cp .env.example .env
-```
 
 | Variable | Descripción | Default |
 |----------|-------------|---------|
