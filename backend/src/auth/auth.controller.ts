@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
 interface AuthenticatedUser {
@@ -16,6 +17,12 @@ interface AuthenticatedUser {
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  @Post('register')
+  @ApiOperation({ summary: 'Registro de instructor' })
+  register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
 
   @Post('login')
   @ApiOperation({ summary: 'Iniciar sesión' })

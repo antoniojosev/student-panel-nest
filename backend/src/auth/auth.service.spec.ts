@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service.js';
@@ -7,13 +7,14 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: { user: { findUnique: jest.Mock } };
+  let prisma: { user: { findUnique: jest.Mock; create: jest.Mock } };
   let jwt: { sign: jest.Mock };
 
   beforeEach(async () => {
     prisma = {
       user: {
         findUnique: jest.fn(),
+        create: jest.fn(),
       },
     };
     jwt = { sign: jest.fn().mockReturnValue('mock-token') };
@@ -27,6 +28,29 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get(AuthService);
+  });
+
+  describe('register', () => {
+    const dto = { email: 'new@mail.com', password: '123456', name: 'New Instructor' };
+
+    it('should register as instructor and return token', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: '1', email: dto.email, name: dto.name, role: 'instructor' });
+
+      const result = await service.register(dto);
+
+      expect(result.user.role).toBe('instructor');
+      expect(result.access_token).toBe('mock-token');
+      const createCall = prisma.user.create.mock.calls[0][0];
+      expect(createCall.data.role).toBe('instructor');
+      expect(createCall.data.password).not.toBe(dto.password);
+    });
+
+    it('should throw ConflictException on duplicate email', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: '1', email: dto.email });
+
+      await expect(service.register(dto)).rejects.toThrow(ConflictException);
+    });
   });
 
   describe('login', () => {
