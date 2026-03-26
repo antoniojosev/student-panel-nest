@@ -5,28 +5,30 @@ API REST para la plataforma educativa VR Academy. Gestión de usuarios, estudian
 ## Stack
 
 - **NestJS** + TypeScript
-- **Prisma ORM** + SQLite (via LibSQL adapter)
+- **Prisma ORM** + PostgreSQL
+- **Docker Compose** para desarrollo local
 - **JWT** para autenticación
 - **class-validator** para validación de DTOs
 - **bcrypt** para hashing de contraseñas
 
 ## Decisiones técnicas
 
-- **SQLite**: Base de datos ligera sin dependencias externas. Ideal para desarrollo y demos. La migración a PostgreSQL solo requiere cambiar el adapter en Prisma.
-- **Prisma 7 + LibSQL**: Adapter nativo para SQLite con soporte completo de migraciones y tipado.
+- **PostgreSQL**: Misma base de datos en local (Docker) y producción (Supabase). Sin divergencias entre entornos.
+- **Prisma 7 + adapter-pg**: Driver adapter para PostgreSQL con tipado completo y enums a nivel de DB.
+- **Enums de Prisma**: `Role` (admin | instructor) y `StudentStatus` (activo | inactivo | completado | abandonado) validados en la base de datos, no solo en código.
 - **Roles con guards**: Decoradores `@Roles()` y `RolesGuard` para autorización declarativa en cada endpoint.
 - **Scope por instructor**: Los instructores solo acceden a sus propios estudiantes. El filtrado se aplica a nivel de servicio, no de controlador.
 - **Métricas en backend**: Las agregaciones del dashboard se calculan con queries de Prisma (`groupBy`, `aggregate`, `count`), no en el frontend.
-- **Sin registro público**: Los usuarios los crea el admin desde el panel. El admin default se genera con el seed.
+- **Registro público de instructores**: Los instructores se auto-registran via `/api/auth/register`. Los admins se crean desde el panel de admin o el seed.
 
 ## Requisitos
 
 - Node.js >= 18
+- Docker y Docker Compose
 
 ## Instalación
 
 ```bash
-cd backend
 cp .env.example .env
 npm install
 ```
@@ -35,30 +37,34 @@ npm install
 
 ## Variables de entorno
 
-Editar `.env` si es necesario:
-
+Editar `.env`:
 
 | Variable | Descripción | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | Ruta al archivo SQLite | `file:./prisma/dev.db` |
+| `DATABASE_URL` | URL de conexión PostgreSQL | `postgresql://vracademy:vracademy@localhost:5432/vracademy` |
 | `JWT_SECRET` | Clave secreta para firmar tokens JWT | `jwt-secret-change-me` |
 | `PORT` | Puerto del servidor | `3001` |
+| `CORS_ORIGIN` | Orígenes permitidos (separados por coma) | Todos (si no se define) |
 
-## Base de datos
-
-Crear la base de datos y aplicar migraciones:
-
-```bash
-npx prisma migrate dev
-```
-
-## Seed
-
-Poblar la base de datos con datos de prueba (4 usuarios + 30 estudiantes):
+## Levantar el proyecto
 
 ```bash
-npx prisma db seed
+# 1. Levantar PostgreSQL local
+docker compose up -d
+
+# 2. Sincronizar schema con la base de datos
+npm run db:push
+
+# 3. Poblar con datos de prueba
+npm run db:seed
+
+# 4. Iniciar en modo desarrollo
+npm run start:dev
 ```
+
+El servidor arranca en `http://localhost:3001`.
+
+Documentación Swagger disponible en `http://localhost:3001/api/docs`.
 
 ### Credenciales del seed
 
@@ -69,18 +75,16 @@ npx prisma db seed
 | Instructor | `maria@vracademy.lat` | `pass123` |
 | Instructor | `jorge@vracademy.lat` | `pass123` |
 
-## Ejecutar
+## Producción
+
+Para apuntar a producción, cambiar `DATABASE_URL` en `.env` a la URL de PostgreSQL de producción y ejecutar:
 
 ```bash
-# Desarrollo (watch mode)
-npm run start:dev
-
-# Producción
+npm run db:push
+npm run db:seed
 npm run build
 npm run start:prod
 ```
-
-El servidor arranca en `http://localhost:3001`.
 
 ## Tests
 
@@ -88,20 +92,22 @@ El servidor arranca en `http://localhost:3001`.
 npm test
 ```
 
-37 tests unitarios cubriendo: AuthService, UsersService, StudentsService, DashboardService.
+39 tests unitarios cubriendo: AuthService, UsersService, StudentsService, DashboardService.
 
 ## Endpoints
 
 ### Auth
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
+| POST | `/api/auth/register` | No | Registro de instructor |
 | POST | `/api/auth/login` | No | Iniciar sesión |
 | GET | `/api/auth/me` | JWT | Perfil del usuario autenticado |
+| PATCH | `/api/auth/change-password` | JWT | Cambiar contraseña |
 
 ### Usuarios (solo admin)
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/users` | JWT + Admin | Listar usuarios |
+| GET | `/api/users?page=1&limit=10` | JWT + Admin | Listar usuarios (paginado) |
 | GET | `/api/users/:id` | JWT + Admin | Detalle de usuario |
 | POST | `/api/users` | JWT + Admin | Crear usuario |
 | PATCH | `/api/users/:id` | JWT + Admin | Actualizar usuario |
@@ -110,15 +116,13 @@ npm test
 ### Estudiantes
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/students` | JWT | Listar (paginado, filtros) |
+| GET | `/api/students?page=1&limit=10&status=activo&search=texto` | JWT | Listar (paginado, filtros, búsqueda) |
 | GET | `/api/students/:id` | JWT | Detalle |
 | POST | `/api/students` | JWT | Crear estudiante |
 | PATCH | `/api/students/:id` | JWT | Actualizar |
 | DELETE | `/api/students/:id` | JWT | Eliminar |
 
-**Query params de listado:** `?page=1&limit=10&status=activo&search=texto`
-
-**Nota:** El instructor solo ve/modifica sus propios estudiantes. El admin ve todos y puede asignar un `instructorId` al crear.
+**Nota:** El instructor solo ve/modifica sus propios estudiantes. El admin ve todos y puede asignar un `instructorId` al crear o actualizar.
 
 ### Dashboard
 | Método | Ruta | Auth | Descripción |
@@ -127,27 +131,27 @@ npm test
 
 Respuesta:
 - `totalStudents` — total de estudiantes
-- `statusDistribution` — cantidad por estado
+- `statusDistribution` — cantidad por estado (`[{name, value}]`)
 - `avgProgress` — progreso promedio (%)
-- `last7Days` — registros por día (últimos 7 días)
-- `instructorRanking` — ranking por estudiantes completados (solo admin)
+- `last7Days` — registros por día (`[{name, complete}]`)
+- `instructorRanking` — ranking por estudiantes completados con tasa de completitud (solo admin)
 
 ## Estructura
 
 ```
-backend/
 ├── prisma/
-│   ├── schema.prisma       # Modelos de datos
+│   ├── schema.prisma       # Modelos y enums
 │   ├── seed.ts             # Datos de prueba
 │   └── migrations/
 ├── src/
-│   ├── auth/               # Login, JWT, guards
-│   ├── users/              # CRUD usuarios (admin)
-│   ├── students/           # CRUD estudiantes (scoped)
+│   ├── auth/               # Login, registro, JWT, change-password
+│   ├── users/              # CRUD usuarios (admin, paginado)
+│   ├── students/           # CRUD estudiantes (scoped, paginado, búsqueda)
 │   ├── dashboard/          # Métricas y agregaciones
 │   ├── common/             # Guards, decorators, filters
 │   ├── prisma/             # PrismaService
 │   ├── app.module.ts
 │   └── main.ts
+├── docker-compose.yml
 └── .env.example
 ```
