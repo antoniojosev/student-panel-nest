@@ -5,7 +5,7 @@ Plataforma SaaS educativa con VR para gestion de estudiantes y cursos. Evaluacio
 
 ## Stack
 - **Backend**: NestJS + TypeScript
-- **Base de datos**: SQLite + Prisma ORM
+- **Base de datos**: PostgreSQL + Prisma ORM (Docker Compose para local, Supabase para prod)
 - **Frontend**: React + TypeScript + MUI (Berry Template) — fase posterior
 - **Auth**: JWT (access + refresh tokens)
 - **Estado frontend**: TanStack Query — fase posterior
@@ -25,13 +25,13 @@ Plataforma SaaS educativa con VR para gestion de estudiantes y cursos. Evaluacio
 ## Entidades
 
 ### Usuario
-- email (unique), password (hashed), nombre, rol (admin | instructor)
+- email (unique), password (hashed), nombre, rol (Role enum: admin | instructor)
 - Admin: CRUD usuarios + metricas globales
 - Instructor: solo sus estudiantes + sus metricas
 
 ### Estudiante
 - nombre, email, institucion, curso_asignado, progreso (0-100)
-- estado (activo | inactivo | completado | abandonado)
+- estado (StudentStatus enum: activo | inactivo | completado | abandonado)
 - fecha_registro, instructor_id (relacion obligatoria)
 
 ## Metricas del Dashboard
@@ -53,19 +53,18 @@ Plataforma SaaS educativa con VR para gestion de estudiantes y cursos. Evaluacio
 
 ## Comandos
 ```bash
-# Backend
-cd backend
-npm run start:dev          # Desarrollo
-npm run build              # Build
-npm run test               # Tests
-npx prisma migrate dev     # Migraciones
-npx prisma generate        # Generar cliente
-npx prisma studio          # UI de base de datos
+docker compose up -d             # Levantar PostgreSQL local
+npm run start:dev                # Desarrollo
+npm run build                    # Build
+npm run test                     # Tests
+npm run db:push                  # Sincronizar schema con DB
+npm run db:seed                  # Seed de datos
+npx prisma generate              # Generar cliente
+npx prisma studio                # UI de base de datos
 ```
 
-## Estructura Backend (NestJS)
+## Estructura
 ```
-backend/
 ├── src/
 │   ├── auth/              # Login, registro, JWT strategy, guards
 │   ├── users/             # CRUD usuarios (admin)
@@ -75,7 +74,8 @@ backend/
 │   └── prisma/            # Prisma service
 ├── prisma/
 │   └── schema.prisma
-└── test/
+├── test/
+└── docker-compose.yml
 ```
 
 ## Convenciones
@@ -85,3 +85,4 @@ backend/
 - Custom decorators: @Roles(), @CurrentUser()
 - Responses consistentes con shape uniforme
 - Errores HTTP con mensajes descriptivos
+- Enums de Prisma para Role y StudentStatus (integridad a nivel DB)
